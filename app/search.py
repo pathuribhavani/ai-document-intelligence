@@ -1,19 +1,26 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
 class DocumentSearch:
 
     def __init__(self, chunks):
+
         self.chunks = chunks
 
-        self.vectorizer = TfidfVectorizer()
+        self.model = SentenceTransformer(
+            "all-MiniLM-L6-v2"
+        )
 
-        self.chunk_vectors = self.vectorizer.fit_transform(chunks)
+        self.chunk_vectors = self.model.encode(
+            chunks
+        )
 
     def search(self, query, top_k=3):
 
-        query_vector = self.vectorizer.transform([query])
+        query_vector = self.model.encode(
+            [query]
+        )
 
         similarities = cosine_similarity(
             query_vector,
@@ -25,6 +32,7 @@ class DocumentSearch:
         results = []
 
         for index in top_indices:
+
             results.append({
                 "chunk": self.chunks[index],
                 "score": float(similarities[index])
