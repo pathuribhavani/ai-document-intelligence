@@ -1,5 +1,5 @@
+import chromadb
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 
 
 class DocumentSearch:
@@ -12,30 +12,52 @@ class DocumentSearch:
             "all-MiniLM-L6-v2"
         )
 
-        self.chunk_vectors = self.model.encode(
+        self.client = chromadb.PersistentClient(
+            path="./chroma_db"
+        )
+
+        self.collection = self.client.get_or_create_collection(
+            name="documents"
+        )
+
+        embeddings = self.model.encode(
             chunks
+        ).tolist()
+
+        ids = [
+            f"chunk_{i}"
+            for i in range(len(chunks))
+        ]
+
+        self.collection.upsert(
+            ids=ids,
+            documents=chunks,
+            embeddings=embeddings
         )
 
     def search(self, query, top_k=3):
 
-        query_vector = self.model.encode(
+        query_embedding = self.model.encode(
             [query]
+        ).tolist()
+
+        results = self.collection.query(
+            query_embeddings=query_embedding,
+            n_results=top_k
         )
 
-        similarities = cosine_similarity(
-            query_vector,
-            self.chunk_vectors
-        )[0]
+        chunks = results["documents"][0]
+        distances = results["distances"][0]
 
-        top_indices = similarities.argsort()[::-1][:top_k]
+        search_results = []
 
-        results = []
+        for chunk, distance in zip(chunks, distances):
 
-        for index in top_indices:
+            score = 1 - distance
 
-            results.append({
-                "chunk": self.chunks[index],
-                "score": float(similarities[index])
+            search_results.append({
+                "chunk": chunk,
+                "score": float(score)
             })
 
-        return results
+        return search_results
