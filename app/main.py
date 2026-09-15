@@ -1,9 +1,33 @@
 from fastapi import FastAPI, UploadFile, File
 import shutil
 import os
+from app.pdf_processor import extract_text_from_pdf
+from app.chunker import chunk_text
+from app.search import DocumentSearch
+from pydantic import BaseModel
 
 app = FastAPI(title="AI Document Intelligence Platform")
+class SearchRequest(BaseModel):
+    question: str
 
+
+@app.post("/documents/search")
+def search_document(request: SearchRequest):
+
+    file_path = "uploads/python.pdf"
+
+    text = extract_text_from_pdf(file_path)
+
+    chunks = chunk_text(text)
+
+    search_engine = DocumentSearch(chunks)
+
+    results = search_engine.search(request.question)
+
+    return {
+        "question": request.question,
+        "results": results
+    }
 
 @app.get("/")
 def home():
